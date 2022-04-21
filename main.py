@@ -42,7 +42,7 @@ def myFunc(e):
     return e.timestamp
 
 
-async def process_transactions(transaction_list):
+async def process_transactions(transaction_list: list):
 
     for transaction in transaction_list:
         if transaction.points < 0:
@@ -60,12 +60,47 @@ async def process_transactions(transaction_list):
                 elif amount >= transaction_list[x].points:
                     amount -= transaction_list[x].points
                     del transaction_list[x]
-                    print(transaction_list)
-                    x = 0
                 else:
                     x += 1
             transaction_list.remove(transaction)
     return transaction_list
+
+
+async def flatten_dict(processed_dict: dict):
+    flat_list = []
+    for payer in processed_dict:
+        for transaction in processed_dict[payer]:
+            flat_list.append(transaction)
+    return flat_list
+
+
+async def process_payment(transaction_list: list, amount: int):
+    response_dict = {}
+    for transaction in transaction_list:
+        if amount == 0:
+            break
+        if amount <= transaction.points:
+            if transaction.payer not in response_dict:
+                response_dict[transaction.payer] = {
+                    "payer": transaction.payer,
+                    "points": amount * -1,
+                }
+            else:
+                response_dict[transaction.payer]["points"] -= amount
+            amount = 0
+        else:
+
+            amount -= transaction.points
+            if transaction.payer not in response_dict:
+                response_dict[transaction.payer] = {
+                    "payer": transaction.payer,
+                    "points": transaction.points * -1,
+                }
+            else:
+                response_dict[transaction.payer]["points"] -= transaction.points
+    if amount != 0:
+        return False
+    return response_dict
 
 
 @app.post("/spend/{account_id}")
@@ -83,11 +118,28 @@ async def spend(account_id: int, amount: int):
     for payer in payer_dict:
         payer_dict[payer].sort(key=myFunc)
         payer_dict[payer] = await process_transactions(payer_dict[payer])
-    processed_list = payer_dict.values()
-    print(processed_list)
-    return JSONResponse(
-        status_code=status.HTTP_201_CREATED,
-    )
+    processed_list = await flatten_dict(payer_dict)
+    processed_list.sort(key=myFunc)
+    response_dict = await process_payment(processed_list, amount)
+    if not response_dict:
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND, content="not enough points"
+        )
+    response_string = []
+    for payer in response_dict:
+        new_transaction = Transaction(
+            payer=response_dict[payer]["payer"],
+            points=response_dict[payer]["points"],
+            timestamp=datetime.now(),
+        )
+        accounts[account_id].append(new_transaction)
+        transaction_string = {
+            "payer": response_dict[payer]["payer"],
+            "points": response_dict[payer]["points"],
+        }
+        response_string.append(transaction_string)
+
+    return response_string
 
 
 # process each payer,remove negatives and when a transaction is empty remove it from temp list
