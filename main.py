@@ -1,5 +1,4 @@
 from datetime import datetime
-from os import times
 from fastapi import FastAPI, status
 from pydantic import BaseModel
 from fastapi.responses import JSONResponse
@@ -17,8 +16,10 @@ accounts = {
     0: [
         Transaction(payer="Alice", points=100, timestamp="2016-01-01T00:00:03Z"),
         Transaction(payer="Alice", points=200, timestamp="2022-01-01T00:00:03Z"),
-        Transaction(payer="Alice", points=400, timestamp="2019-01-01T00:00:03Z"),
+        Transaction(payer="Alice", points=400, timestamp="2017-01-01T00:00:03Z"),
+        Transaction(payer="Alice", points=-200, timestamp="2019-01-01T00:00:03Z"),
         Transaction(payer="Bob", points=200, timestamp="2018-01-02T00:00:00Z"),
+        Transaction(payer="Bob", points=-100, timestamp="2018-01-02T00:00:00Z"),
         Transaction(payer="sean", points=300, timestamp="2022-01-02T00:00:02Z"),
     ]
 }
@@ -38,8 +39,33 @@ async def show(account_id: int):
 
 
 def myFunc(e):
-    print(e.timestamp)
     return e.timestamp
+
+
+async def process_transactions(transaction_list):
+
+    for transaction in transaction_list:
+        if transaction.points < 0:
+            amount = abs(transaction.points)
+            x = 0
+            while amount > 0:
+                if x > len(transaction_list) - 1:
+                    break
+                elif transaction_list[x].points < 0:
+                    x += 1
+                    continue
+                elif transaction_list[x].points > amount:
+                    transaction_list[x].points -= amount
+                    amount = 0
+                elif amount >= transaction_list[x].points:
+                    amount -= transaction_list[x].points
+                    del transaction_list[x]
+                    print(transaction_list)
+                    x = 0
+                else:
+                    x += 1
+            transaction_list.remove(transaction)
+    return transaction_list
 
 
 @app.post("/spend/{account_id}")
@@ -56,8 +82,12 @@ async def spend(account_id: int, amount: int):
             payer_dict[transaction.payer].append(transaction)
     for payer in payer_dict:
         payer_dict[payer].sort(key=myFunc)
-
-    return payer_dict
+        payer_dict[payer] = await process_transactions(payer_dict[payer])
+    processed_list = payer_dict.values()
+    print(processed_list)
+    return JSONResponse(
+        status_code=status.HTTP_201_CREATED,
+    )
 
 
 # process each payer,remove negatives and when a transaction is empty remove it from temp list
