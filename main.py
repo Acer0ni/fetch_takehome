@@ -1,5 +1,6 @@
 import copy
 from datetime import datetime, timezone
+from urllib import response
 from fastapi import FastAPI, status
 from pydantic import BaseModel
 from fastapi.responses import JSONResponse
@@ -24,19 +25,6 @@ accounts = {
         Transaction(payer="sean", points=300, timestamp="2022-01-02T00:00:02Z"),
     ]
 }
-
-
-@app.post("/transact/{account_id}", status_code=201)
-async def transact(account_id: int, transactions: list[Transaction]):
-    if account_id not in accounts:
-        print("id not found")
-        return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=account_id)
-    accounts[account_id].extend(transactions)
-
-
-@app.post("/show/{account_id}")
-async def show(account_id: int):
-    return accounts[account_id]
 
 
 def myFunc(e):
@@ -114,6 +102,30 @@ async def convert_to_dict(account):
     return payer_dict
 
 
+async def tally_transactions(payer_dict):
+    response_dict = {}
+    for payer in payer_dict:
+        for transaction in payer_dict[payer]:
+            if payer not in response_dict:
+                response_dict[payer] = transaction.points
+            else:
+                response_dict[payer] += transaction.points
+    return response_dict
+
+
+@app.post("/transact/{account_id}", status_code=201)
+async def transact(account_id: int, transactions: list[Transaction]):
+    if account_id not in accounts:
+        print("id not found")
+        return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=account_id)
+    accounts[account_id].extend(transactions)
+
+
+@app.post("/show/{account_id}")
+async def show(account_id: int):
+    return accounts[account_id]
+
+
 @app.post("/spend/{account_id}")
 async def spend(account_id: int, amount: int):
     if account_id not in accounts:
@@ -147,6 +159,20 @@ async def spend(account_id: int, amount: int):
         response_string.append(transaction_string)
 
     return JSONResponse(status_code=status.HTTP_200_OK, content=response_string)
+
+
+@app.get("/balance/{account_id}")
+async def show_balance(account_id: int):
+    if account_id not in accounts:
+        print("id not found")
+        return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=account_id)
+    account = copy.deepcopy(accounts[account_id])
+    payer_dict = await convert_to_dict(account)
+    for payer in payer_dict:
+        payer_dict[payer].sort(key=myFunc)
+        payer_dict[payer] = await process_transactions(payer_dict[payer])
+    response_dict = await tally_transactions(payer_dict)
+    return response_dict
 
 
 # process each payer,remove negatives and when a transaction is empty remove it from temp list
