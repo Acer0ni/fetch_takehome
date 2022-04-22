@@ -121,7 +121,7 @@ async def show(account_id: int):
 
 
 @app.post("/spend/{account_id}")
-async def spend(account_id: int, amount: int):
+async def spend(account_id: int, points: int):
     if account_id not in accounts:
         print("id not found")
         return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=account_id)
@@ -132,7 +132,7 @@ async def spend(account_id: int, amount: int):
         payer_dict[payer] = await process_transactions(payer_dict[payer])
     processed_list = await flatten_dict(payer_dict)
     processed_list.sort(key=myFunc)
-    response_dict = await process_payment(processed_list, amount)
+    response_dict = await process_payment(processed_list, points)
 
     if not response_dict:
         return JSONResponse(
