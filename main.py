@@ -14,17 +14,7 @@ class Transaction(BaseModel):
     timestamp: datetime
 
 
-accounts = {
-    0: [
-        Transaction(payer="Alice", points=100, timestamp="2016-01-01T00:00:03Z"),
-        Transaction(payer="Alice", points=200, timestamp="2022-01-01T00:00:03Z"),
-        Transaction(payer="Alice", points=400, timestamp="2017-01-01T00:00:03Z"),
-        Transaction(payer="Alice", points=-200, timestamp="2019-01-01T00:00:03Z"),
-        Transaction(payer="Bob", points=200, timestamp="2018-01-02T00:00:00Z"),
-        Transaction(payer="Bob", points=-100, timestamp="2018-01-02T00:00:00Z"),
-        Transaction(payer="sean", points=300, timestamp="2022-01-02T00:00:02Z"),
-    ]
-}
+accounts = {}
 
 
 def myFunc(e):
@@ -102,15 +92,18 @@ async def convert_to_dict(account):
     return payer_dict
 
 
-async def tally_transactions(payer_dict):
-    response_dict = {}
+async def tally_transactions(payer_dict, response_dict):
     for payer in payer_dict:
         for transaction in payer_dict[payer]:
-            if payer not in response_dict:
-                response_dict[payer] = transaction.points
-            else:
-                response_dict[payer] += transaction.points
+            response_dict[payer] += transaction.points
     return response_dict
+
+
+@app.post("/user")
+async def create_new_user():
+    account_id = len(accounts)
+    accounts[account_id] = []
+    return account_id
 
 
 @app.post("/transact/{account_id}", status_code=201)
@@ -119,9 +112,10 @@ async def transact(account_id: int, transactions: list[Transaction]):
         print("id not found")
         return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=account_id)
     accounts[account_id].extend(transactions)
+    return accounts[account_id]
 
 
-@app.post("/show/{account_id}")
+@app.get("/show/{account_id}")
 async def show(account_id: int):
     return accounts[account_id]
 
@@ -168,10 +162,12 @@ async def show_balance(account_id: int):
         return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=account_id)
     account = copy.deepcopy(accounts[account_id])
     payer_dict = await convert_to_dict(account)
+    response_dict = {}
     for payer in payer_dict:
+        response_dict[payer] = 0
         payer_dict[payer].sort(key=myFunc)
         payer_dict[payer] = await process_transactions(payer_dict[payer])
-    response_dict = await tally_transactions(payer_dict)
+    response_dict = await tally_transactions(payer_dict, response_dict)
     return response_dict
 
 
