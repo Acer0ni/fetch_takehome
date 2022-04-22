@@ -1,4 +1,5 @@
-from datetime import datetime
+import copy
+from datetime import datetime, timezone
 from fastapi import FastAPI, status
 from pydantic import BaseModel
 from fastapi.responses import JSONResponse
@@ -103,24 +104,30 @@ async def process_payment(transaction_list: list, amount: int):
     return response_dict
 
 
-@app.post("/spend/{account_id}")
-async def spend(account_id: int, amount: int):
-    if account_id not in accounts:
-        print("id not found")
-        return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=account_id)
-    account = accounts[account_id]
+async def convert_to_dict(account):
     payer_dict = {}
     for transaction in account:
         if transaction.payer not in payer_dict:
             payer_dict[transaction.payer] = [transaction]
         else:
             payer_dict[transaction.payer].append(transaction)
+    return payer_dict
+
+
+@app.post("/spend/{account_id}")
+async def spend(account_id: int, amount: int):
+    if account_id not in accounts:
+        print("id not found")
+        return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=account_id)
+    account = copy.deepcopy(accounts[account_id])
+    payer_dict = await convert_to_dict(account)
     for payer in payer_dict:
         payer_dict[payer].sort(key=myFunc)
         payer_dict[payer] = await process_transactions(payer_dict[payer])
     processed_list = await flatten_dict(payer_dict)
     processed_list.sort(key=myFunc)
     response_dict = await process_payment(processed_list, amount)
+
     if not response_dict:
         return JSONResponse(
             status_code=status.HTTP_404_NOT_FOUND, content="not enough points"
@@ -130,7 +137,7 @@ async def spend(account_id: int, amount: int):
         new_transaction = Transaction(
             payer=response_dict[payer]["payer"],
             points=response_dict[payer]["points"],
-            timestamp=datetime.now(),
+            timestamp=datetime.now(tz=timezone.utc),
         )
         accounts[account_id].append(new_transaction)
         transaction_string = {
@@ -139,7 +146,7 @@ async def spend(account_id: int, amount: int):
         }
         response_string.append(transaction_string)
 
-    return response_string
+    return JSONResponse(status_code=status.HTTP_200_OK, content=response_string)
 
 
 # process each payer,remove negatives and when a transaction is empty remove it from temp list
