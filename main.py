@@ -13,6 +13,9 @@ class Transaction(BaseModel):
     points: int
     timestamp: datetime
 
+    def __repr__(self):
+        return f"<Transaction payer: {self.payer} points: {self.points} timestamp: {self.timestamp}>"
+
 
 accounts = {}
 
@@ -108,17 +111,17 @@ async def create_new_user():
 
 
 @app.post("/transact/{account_id}", status_code=201)
-async def transact(account_id: int, transactions: list[Transaction]):
+async def transact(account_id: int, transactions: list):
     if account_id not in accounts:
         print("id not found")
         return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=account_id)
     for transaction in transactions:
-        print(transaction)
-        if transaction.points < 0:
-            temp_transactions = copy.deepcopy(accounts[account_id])
-            temp_transactions.sort(key=myFunc)
-            temp_transactions.insert(0, transaction)
-    accounts[account_id].extend(transactions)
+        new_transaction = Transaction(
+            payer=transaction["payer"],
+            points=transaction["points"],
+            timestamp=transaction["timestamp"],
+        )
+        accounts[account_id].append(new_transaction)
     return accounts[account_id]
 
 
