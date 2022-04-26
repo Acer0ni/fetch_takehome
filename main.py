@@ -79,6 +79,7 @@ async def process_payment(transaction_list: list, amount: int):
                 response_dict[transaction.payer]["points"] -= transaction.points
     if amount != 0:
         return False
+
     return response_dict
 
 
@@ -111,6 +112,12 @@ async def transact(account_id: int, transactions: list[Transaction]):
     if account_id not in accounts:
         print("id not found")
         return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=account_id)
+    for transaction in transactions:
+        print(transaction)
+        if transaction.points < 0:
+            temp_transactions = copy.deepcopy(accounts[account_id])
+            temp_transactions.sort(key=myFunc)
+            temp_transactions.insert(0, transaction)
     accounts[account_id].extend(transactions)
     return accounts[account_id]
 
@@ -122,6 +129,11 @@ async def show(account_id: int):
 
 @app.post("/spend/{account_id}")
 async def spend(account_id: int, points: int):
+    if points == 0:
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content="can not spend negative points",
+        )
     if account_id not in accounts:
         print("id not found")
         return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=account_id)
