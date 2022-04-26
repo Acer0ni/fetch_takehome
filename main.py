@@ -28,7 +28,11 @@ async def process_transactions(transaction_list: list):
     """
     takes in a sorted list of transactions and returns a dictionary seperated by payer
     """
+    if not isinstance(transaction_list, list):
+        return "requires list"
     for transaction in transaction_list:
+        if not isinstance(transaction, Transaction):
+            return "requires transactions"
         if transaction.points < 0:
             amount = abs(transaction.points)
             x = 0
@@ -149,7 +153,10 @@ async def spend(account_id: int, points: int):
     payer_dict = await convert_to_dict(account)
     for payer in payer_dict:
         payer_dict[payer].sort(key=myFunc)
+        print(payer_dict[payer])
         payer_dict[payer] = await process_transactions(payer_dict[payer])
+        print(payer_dict[payer])
+        return
     processed_list = await flatten_dict(payer_dict)
     processed_list.sort(key=myFunc)
     response_dict = await process_payment(processed_list, points)
