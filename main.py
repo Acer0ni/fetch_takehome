@@ -25,7 +25,9 @@ def myFunc(e):
 
 
 async def process_transactions(transaction_list: list):
-
+    """
+    takes in a sorted list of transactions and returns a dictionary seperated by payer
+    """
     for transaction in transaction_list:
         if transaction.points < 0:
             amount = abs(transaction.points)
@@ -111,17 +113,20 @@ async def create_new_user():
 
 
 @app.post("/transact/{account_id}", status_code=201)
-async def transact(account_id: int, transactions: list):
+async def transact(account_id: int, transaction: Transaction):
     if account_id not in accounts:
         print("id not found")
-        return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=account_id)
-    for transaction in transactions:
-        new_transaction = Transaction(
-            payer=transaction["payer"],
-            points=transaction["points"],
-            timestamp=transaction["timestamp"],
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND, content="ID not found."
         )
-        accounts[account_id].append(new_transaction)
+    balance = await show_balance(account_id)
+    if transaction.payer not in balance:
+        balance[transaction.payer] = transaction.points
+    if (balance[transaction.payer] + transaction.points) < 0:
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND, content="Not enough points."
+        )
+    accounts[account_id].append(transaction)
     return accounts[account_id]
 
 
