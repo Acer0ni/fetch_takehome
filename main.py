@@ -17,6 +17,10 @@ class Transaction(BaseModel):
         return f"<Transaction payer: {self.payer} points: {self.points} timestamp: {self.timestamp}>"
 
 
+class points(BaseModel):
+    points: int
+
+
 accounts = {}
 
 
@@ -145,7 +149,8 @@ async def show(account_id: int):
 
 
 @app.post("/spend/{account_id}")
-async def spend(account_id: int, points: int):
+async def spend(account_id: int, points: points):
+    points = points.points
     if points <= 0:
         return JSONResponse(
             status_code=status.HTTP_404_NOT_FOUND,

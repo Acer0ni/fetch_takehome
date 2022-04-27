@@ -7,15 +7,15 @@ from main import (
     Transaction,
     process_payment,
     process_transactions,
+    app,
 )
 import unittest
+import asyncio
+from fastapi.testclient import TestClient
+
 
 transaction_response = [
     {"payer": "DANNON", "points": 1000, "timestamp": "2020-11-02T14:00:00Z"},
-    {"payer": "UNILEVER", "points": 200, "timestamp": "2020-10-31T11:00:00Z"},
-    {"payer": "DANNON", "points": -200, "timestamp": "2020-10-31T15:00:00Z"},
-    {"payer": "MILLER COORS", "points": 10000, "timestamp": "2020-11-01T14:00:00Z"},
-    {"payer": "DANNON", "points": 300, "timestamp": "2020-10-31T10:00:00Z"},
 ]
 pay_response = [
     {"payer": "DANNON", "points": -100},
@@ -26,6 +26,71 @@ balance_response = {"DANNON": 1000, "UNILEVER": 0, "MILLER COORS": 5300}
 
 
 class Test_points(unittest.TestCase):
+
+    client = TestClient(app)
+
+    def test_transactions(self):
+
+        transaction = {
+            "payer": "DANNON",
+            "points": 1000,
+            "timestamp": "2020-11-02T14:00:00Z",
+        }
+        transaction_response = [
+            {
+                "payer": "DANNON",
+                "points": 1000,
+                "timestamp": "2020-11-02T14:00:00+00:00",
+            }
+        ]
+
+        account_id = Test_points.client.post("/user")
+
+        response = Test_points.client.post(
+            f"/transact/{account_id.json()}", json=transaction
+        )
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.json(), transaction_response)
+
+    def test_spend(self):
+        account_id = Test_points.client.post("/user")
+        data = {"points": 5000}
+        test_list = [
+            {
+                "payer": "DANNON",
+                "points": 1000,
+                "timestamp": "2020-11-02T14:00:00Z",
+            },
+            {
+                "payer": "UNILEVER",
+                "points": 200,
+                "timestamp": "2020-10-31T11:00:00Z",
+            },
+            {
+                "payer": "DANNON",
+                "points": -200,
+                "timestamp": "2020-10-31T15:00:00Z",
+            },
+            {
+                "payer": "MILLER COORS",
+                "points": 10000,
+                "timestamp": "2020-11-01T14:00:00Z",
+            },
+            {"payer": "DANNON", "points": 300, "timestamp": "2020-10-31T10:00:00Z"},
+        ]
+        test_response = [
+            {"payer": "DANNON", "points": -100},
+            {"payer": "UNILEVER", "points": -200},
+            {"payer": "MILLER COORS", "points": -4700},
+        ]
+
+        for transaction in test_list:
+            Test_points.client.post(f"/transact/{account_id.json()}", json=transaction)
+        response = Test_points.client.post(f"/spend/{account_id.json()}", json=data)
+        print(response.content)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), test_response)
+
     def test_proccess_transactions(self):
         self.maxDiff = None
         transaction_list = [
