@@ -24,7 +24,7 @@ def myFunc(e):
     return e.timestamp
 
 
-async def process_transactions(transaction_list: list):
+def process_transactions(transaction_list: list):
     """
     takes in a sorted list of transactions and returns a dictionary seperated by payer
     """
@@ -54,7 +54,7 @@ async def process_transactions(transaction_list: list):
     return transaction_list
 
 
-async def flatten_dict(processed_dict: dict):
+def flatten_dict(processed_dict: dict):
     flat_list = []
     for payer in processed_dict:
         for transaction in processed_dict[payer]:
@@ -62,7 +62,7 @@ async def flatten_dict(processed_dict: dict):
     return flat_list
 
 
-async def process_payment(transaction_list: list, amount: int):
+def process_payment(transaction_list: list, amount: int):
     if not isinstance(transaction_list, list):
         return "requires list"
     response_dict = {}
@@ -97,7 +97,7 @@ async def process_payment(transaction_list: list, amount: int):
     return response_dict
 
 
-async def convert_to_dict(transaction_list):
+def convert_to_dict(transaction_list):
     payer_dict = {}
     for transaction in transaction_list:
         if transaction.payer not in payer_dict:
@@ -107,7 +107,7 @@ async def convert_to_dict(transaction_list):
     return payer_dict
 
 
-async def tally_transactions(payer_dict, response_dict):
+def tally_transactions(payer_dict, response_dict):
     for payer in payer_dict:
         for transaction in payer_dict[payer]:
             response_dict[payer] += transaction.points
@@ -155,14 +155,13 @@ async def spend(account_id: int, points: int):
         print("id not found")
         return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=account_id)
     account = copy.deepcopy(accounts[account_id])
-    payer_dict = await convert_to_dict(account)
-    print(payer_dict)
+    payer_dict = convert_to_dict(account)
     for payer in payer_dict:
         payer_dict[payer].sort(key=myFunc)
-        payer_dict[payer] = await process_transactions(payer_dict[payer])
-    processed_list = await flatten_dict(payer_dict)
+        payer_dict[payer] = process_transactions(payer_dict[payer])
+    processed_list = flatten_dict(payer_dict)
     processed_list.sort(key=myFunc)
-    response_dict = await process_payment(processed_list, points)
+    response_dict = process_payment(processed_list, points)
 
     if not response_dict:
         return JSONResponse(
@@ -191,13 +190,13 @@ async def show_balance(account_id: int):
         print("id not found")
         return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=account_id)
     account = copy.deepcopy(accounts[account_id])
-    payer_dict = await convert_to_dict(account)
+    payer_dict = convert_to_dict(account)
     response_dict = {}
     for payer in payer_dict:
         response_dict[payer] = 0
         payer_dict[payer].sort(key=myFunc)
-        payer_dict[payer] = await process_transactions(payer_dict[payer])
-    response_dict = await tally_transactions(payer_dict, response_dict)
+        payer_dict[payer] = process_transactions(payer_dict[payer])
+    response_dict = tally_transactions(payer_dict, response_dict)
     return response_dict
 
 
