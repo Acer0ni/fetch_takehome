@@ -63,8 +63,14 @@ async def flatten_dict(processed_dict: dict):
 
 
 async def process_payment(transaction_list: list, amount: int):
+    if not isinstance(transaction_list, list):
+        return "requires list"
     response_dict = {}
+    if amount < 0:
+        return False
     for transaction in transaction_list:
+        if not isinstance(transaction, Transaction):
+            return "requires transactions"
         if amount == 0:
             break
         if amount <= transaction.points:
@@ -88,13 +94,12 @@ async def process_payment(transaction_list: list, amount: int):
                 response_dict[transaction.payer]["points"] -= transaction.points
     if amount != 0:
         return False
-
     return response_dict
 
 
-async def convert_to_dict(account):
+async def convert_to_dict(transaction_list):
     payer_dict = {}
-    for transaction in account:
+    for transaction in transaction_list:
         if transaction.payer not in payer_dict:
             payer_dict[transaction.payer] = [transaction]
         else:
@@ -141,7 +146,7 @@ async def show(account_id: int):
 
 @app.post("/spend/{account_id}")
 async def spend(account_id: int, points: int):
-    if points == 0:
+    if points <= 0:
         return JSONResponse(
             status_code=status.HTTP_404_NOT_FOUND,
             content="can not spend negative points",
@@ -151,12 +156,10 @@ async def spend(account_id: int, points: int):
         return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=account_id)
     account = copy.deepcopy(accounts[account_id])
     payer_dict = await convert_to_dict(account)
+    print(payer_dict)
     for payer in payer_dict:
         payer_dict[payer].sort(key=myFunc)
-        print(payer_dict[payer])
         payer_dict[payer] = await process_transactions(payer_dict[payer])
-        print(payer_dict[payer])
-        return
     processed_list = await flatten_dict(payer_dict)
     processed_list.sort(key=myFunc)
     response_dict = await process_payment(processed_list, points)
