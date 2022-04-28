@@ -26,7 +26,7 @@ After that you can add transactions to the account with POST request to `transac
 }
 ```
 
-once you have a couple of transactions on the account you can then spend the points by making a POST to `/spend/{accountid}` with the amount of points in the body looking like this
+Once you have a couple of transactions on the account you can then spend the points by making a POST to `/spend/{accountid}` with the amount of points in the body looking like this.
 
 ```
 {
